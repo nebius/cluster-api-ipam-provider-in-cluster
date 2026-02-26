@@ -79,6 +79,14 @@ func (i *InClusterProviderAdapter) SetupWithManager(_ context.Context, b *ctrl.B
 					Group: v1alpha2.GroupVersion.Group,
 					Kind:  globalInClusterIPPoolKind,
 				}),
+				ipampredicates.ClaimReferencesPoolKind(metav1.GroupKind{
+					Group: v1alpha2.GroupVersion.Group,
+					Kind:  inClusterPrefixPoolKind,
+				}),
+				ipampredicates.ClaimReferencesPoolKind(metav1.GroupKind{
+					Group: v1alpha2.GroupVersion.Group,
+					Kind:  globalInClusterPrefixPoolKind,
+				}),
 			),
 		)).
 		WithOptions(controller.Options{
@@ -101,11 +109,41 @@ func (i *InClusterProviderAdapter) SetupWithManager(_ context.Context, b *ctrl.B
 				poolNoLongerEmpty(),
 			)),
 		).
+		Watches(
+			&v1alpha2.InClusterPrefixPool{},
+			handler.EnqueueRequestsFromMapFunc(i.inClusterPrefixPoolToIPClaims(inClusterPrefixPoolKind)),
+			builder.WithPredicates(predicate.Or(
+				resourceTransitionedToUnpaused(),
+				prefixPoolNoLongerEmpty(),
+			)),
+		).
+		Watches(
+			&v1alpha2.GlobalInClusterPrefixPool{},
+			handler.EnqueueRequestsFromMapFunc(i.inClusterPrefixPoolToIPClaims(globalInClusterPrefixPoolKind)),
+			builder.WithPredicates(predicate.Or(
+				resourceTransitionedToUnpaused(),
+				prefixPoolNoLongerEmpty(),
+			)),
+		).
 		Owns(&ipamv1.IPAddress{}, builder.WithPredicates(
-			ipampredicates.AddressReferencesPoolKind(metav1.GroupKind{
-				Group: v1alpha2.GroupVersion.Group,
-				Kind:  inClusterIPPoolKind,
-			}),
+			predicate.Or[client.Object](
+				ipampredicates.AddressReferencesPoolKind(metav1.GroupKind{
+					Group: v1alpha2.GroupVersion.Group,
+					Kind:  inClusterIPPoolKind,
+				}),
+				ipampredicates.AddressReferencesPoolKind(metav1.GroupKind{
+					Group: v1alpha2.GroupVersion.Group,
+					Kind:  globalInClusterIPPoolKind,
+				}),
+				ipampredicates.AddressReferencesPoolKind(metav1.GroupKind{
+					Group: v1alpha2.GroupVersion.Group,
+					Kind:  inClusterPrefixPoolKind,
+				}),
+				ipampredicates.AddressReferencesPoolKind(metav1.GroupKind{
+					Group: v1alpha2.GroupVersion.Group,
+					Kind:  globalInClusterPrefixPoolKind,
+				}),
+			),
 		))
 	return nil
 }
@@ -117,7 +155,7 @@ func (i *InClusterProviderAdapter) inClusterIPPoolToIPClaims(kind string) func(c
 		claims := &ipamv1.IPAddressClaimList{}
 		err := i.Client.List(ctx, claims,
 			client.MatchingFields{
-				"index.poolRef": index.IPPoolRefValue(corev1.TypedLocalObjectReference{
+				index.IPAddressClaimPoolRefCombinedField: index.IPPoolRefValue(corev1.TypedLocalObjectReference{
 					Name:     pool.GetName(),
 					Kind:     kind,
 					APIGroup: &v1alpha2.GroupVersion.Group,
@@ -143,9 +181,17 @@ func (i *InClusterProviderAdapter) inClusterIPPoolToIPClaims(kind string) func(c
 
 // ClaimHandlerFor returns a claim handler for a specific claim.
 func (i *InClusterProviderAdapter) ClaimHandlerFor(_ client.Client, claim *ipamv1.IPAddressClaim) ipamutil.ClaimHandler {
-	return &IPAddressClaimHandler{
-		Client: i.Client,
-		claim:  claim,
+	switch claim.Spec.PoolRef.Kind {
+	case inClusterPrefixPoolKind, globalInClusterPrefixPoolKind:
+		return &PrefixIPAddressClaimHandler{
+			Client: i.Client,
+			claim:  claim,
+		}
+	default:
+		return &IPAddressClaimHandler{
+			Client: i.Client,
+			claim:  claim,
+		}
 	}
 }
 
