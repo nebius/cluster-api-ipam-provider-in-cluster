@@ -70,5 +70,9 @@ func ipAddressClaimByCombinedPoolRef(o client.Object) []string {
 
 // IPPoolRefValue turns a corev1.TypedLocalObjectReference to an indexable value.
 func IPPoolRefValue(ref corev1.TypedLocalObjectReference) string {
-	return fmt.Sprintf("%s%s", ref.Kind, ref.Name)
+	group := ipamv1.GroupVersion.Group
+	if ref.APIGroup != nil && *ref.APIGroup != "" {
+		group = *ref.APIGroup
+	}
+	return fmt.Sprintf("%s/%s/%s", group, ref.Kind, ref.Name)
 }
