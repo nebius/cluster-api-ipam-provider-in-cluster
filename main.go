@@ -62,10 +62,11 @@ func init() {
 
 func main() {
 	var (
-		enableLeaderElection bool
-		probeAddr            string
-		watchNamespace       string
-		watchFilter          string
+		enableLeaderElection    bool
+		leaderElectionNamespace string
+		probeAddr               string
+		watchNamespace          string
+		watchFilter             string
 
 		managerOptions = flags.ManagerOptions{}
 
@@ -82,6 +83,8 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "",
+		"Namespace used to store the leader election lock. If unspecified, the controller manager will use the namespace of the pod running the controller manager.")
 	flag.StringVar(&watchNamespace, "namespace", "",
 		"Namespace that the controller watches to reconcile cluster-api objects. If unspecified, the controller watches for cluster-api objects across all namespaces.")
 	flag.StringVar(&watchFilter, "watch-filter", "", "")
@@ -109,8 +112,9 @@ func main() {
 		Metrics:                *metricsOpts,
 		Scheme:                 scheme,
 		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "7bb7acb4.ipam.cluster.x-k8s.io",
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "7bb7acb4.ipam.cluster.x-k8s.io",
+		LeaderElectionNamespace: leaderElectionNamespace,
 		WebhookServer: webhook.NewServer(
 			webhook.Options{
 				Port:     webhookPort,
