@@ -109,9 +109,9 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 
 	opts := ctrl.Options{
-		Metrics:                *metricsOpts,
-		Scheme:                 scheme,
-		HealthProbeBindAddress: probeAddr,
+		Metrics:                 *metricsOpts,
+		Scheme:                  scheme,
+		HealthProbeBindAddress:  probeAddr,
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "7bb7acb4.ipam.cluster.x-k8s.io",
 		LeaderElectionNamespace: leaderElectionNamespace,
